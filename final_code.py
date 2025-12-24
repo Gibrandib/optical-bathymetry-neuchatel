@@ -10,7 +10,7 @@ from sklearn.metrics import mean_squared_error
 
 # 1) Load Neuchâtel dataset
 
-df = pd.read_csv("data/processed/L8_2020_dataset.csv")
+df = pd.read_csv("L8_2020_dataset.csv")
 
 
 df = df.rename(columns={"Lac_Neuchatel_MNT_Littoral_Bathy_25cm": "Depth"})
@@ -281,5 +281,6 @@ rmse_depth_rf = df_test.groupby("depth_bin")["residual_rf"].apply(
 
 print("\nRMSE by depth bin — Random Forest (test set)")
 print(rmse_depth_rf)
+
 
 
