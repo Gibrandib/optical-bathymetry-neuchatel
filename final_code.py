@@ -6,12 +6,14 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GroupKFold, GridSearchCV
 from sklearn.metrics import mean_squared_error
-
+from sklearn.metrics import mean_absolute_error
 
 # 1) Load Neuchâtel dataset
 
-df = pd.read_csv("L8_2020_dataset.csv")
-
+#load the L8_2020_dataset.csv files from the Github link at the end of the report and change the pathway
+df = pd.read_csv(
+    "L8_2020_dataset.csv"
+)
 
 df = df.rename(columns={"Lac_Neuchatel_MNT_Littoral_Bathy_25cm": "Depth"})
 df["Depth"] = df["Depth"].abs()
@@ -78,6 +80,12 @@ print("Number of pixels after cleaning:", len(df_clean))
 
 
 
+
+
+
+
+
+
 # 3) Features  (log RGB)
 
 eps = 1e-6
@@ -89,6 +97,11 @@ df_clean = df_clean.replace([np.inf, -np.inf], np.nan).dropna()
 
 X_log = df_clean[["log_Blue", "log_Green", "log_Red"]]
 y = df_clean["Depth"]
+
+
+
+
+
 
 
 
@@ -142,43 +155,76 @@ print(depth_counts)
 #in the study area.
 
 
+
+
+
+
+
+
+
 # 5) Baseline — RegLin in log space
+#Model
+LinReg = LinearRegression()
+LinReg.fit(X_train, y_train)
 
-ols = LinearRegression()
-ols.fit(X_train, y_train)
+#Predictions
+y_pred_test_LinReg = LinReg.predict(X_test)
 
-y_pred_test_ols = ols.predict(X_test)
-rmse_ols = np.sqrt(mean_squared_error(y_test, y_pred_test_ols))
+#Evaluation metrics - RMSE & MAE
+rmse_LinReg = np.sqrt(mean_squared_error(y_test, y_pred_test_LinReg))
+mae_LinReg  = mean_absolute_error(y_test, y_pred_test_LinReg)
 
-print("\n=== LYZENGA OLS — TEST SET ===")
-print("RMSE =", rmse_ols)
+print("\n=== LinReg - Log space — TEST SET ===")
+print("RMSE =", rmse_LinReg)
+print("MAE  =", mae_LinReg)
 
 
 
-# 6) Linear Regression residuals — map & RMSE by depth
+
+
+
+
+
+# 6) Linear Regression residuals map & performance by depth
+# Residuals map 
 
 df_test = df_clean.loc[test_idx].copy()
-df_test["residual_ols"] = y_test - y_pred_test_ols
+df_test["residual_LinReg"] = y_test - y_pred_test_LinReg
 
 plt.figure(figsize=(7,6))
 plt.scatter(
     df_test["x"], df_test["y"],
-    c=df_test["residual_ols"], cmap="coolwarm", s=5
+    c=df_test["residual_LinReg"], cmap="coolwarm", s=5
 )
 plt.colorbar(label="Residual (m)")
 plt.xlabel("X coordinate")
 plt.ylabel("Y coordinate")
-plt.title("Lyzenga OLS — Spatial residuals (test set)")
+plt.title("LinReg — Spatial residuals (test set)")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.show()
 
-rmse_depth_ols = df_test.groupby("depth_bin")["residual_ols"].apply(
+# RMSE by depth range 
+rmse_depth_LinReg = df_test.groupby("depth_bin")["residual_LinReg"].apply(
     lambda r: np.sqrt(np.mean(r**2))
 )
 
-print("\nRMSE by depth bin — OLS (test set)")
-print(rmse_depth_ols)
+print("\nRMSE by depth bin — LinReg (test set)")
+print(rmse_depth_LinReg)
+
+# MAE by depth range 
+mae_depth_LinReg = df_test.groupby("depth_bin")["residual_LinReg"].apply(
+    lambda r: np.mean(np.abs(r))
+)
+
+print("\nMAE by depth bin — LinReg (test set)")
+print(mae_depth_LinReg)
+
+
+
+
+
+
 
 
 
@@ -194,10 +240,10 @@ outer_cv = GroupKFold(n_splits=5)
 rf = RandomForestRegressor(random_state=42, n_jobs=-1)
 
 param_grid = {
-    "n_estimators": [100, 200],
-    "max_depth": [8, 12, 16],
-    "min_samples_leaf": [2, 4],
-    "max_features": [1, 2]
+    "n_estimators": [100, 200, 300],
+    "max_depth": [6, 8, 12, 16],
+    "min_samples_leaf": [1, 2, 3],
+    "max_features": [1, 2, 3]
 }
 
 gs = GridSearchCV(
@@ -245,20 +291,39 @@ plt.grid(True)
 plt.show()
 
 
-# 8) Random Forest — retrain on 75 % and final test
 
+
+
+
+
+
+
+
+# 8) Random Forest — retrain on 75 % and final test
+#Model
 best_rf = gs.best_estimator_
 best_rf.fit(X_train, y_train)
 
+# Prediction 
 y_pred_test_rf = best_rf.predict(X_test)
+
+#Evaluation metrics - RMSE & MAE 
 rmse_rf = np.sqrt(mean_squared_error(y_test, y_pred_test_rf))
+mae_rf  = mean_absolute_error(y_test, y_pred_test_rf)
 
 print("\n=== RANDOM FOREST — TEST SET ===")
 print("RMSE =", rmse_rf)
+print("MAE  =", mae_rf)
 
 
 
-# 9) RF residuals — map & RMSE by depth
+
+
+
+
+
+# 9) RF residuals map & Performance by depth
+# Residuals map 
 
 df_test["residual_rf"] = y_test - y_pred_test_rf
 
@@ -275,6 +340,7 @@ plt.gca().invert_yaxis()
 plt.grid(True)
 plt.show()
 
+# RMSE by depth range 
 rmse_depth_rf = df_test.groupby("depth_bin")["residual_rf"].apply(
     lambda r: np.sqrt(np.mean(r**2))
 )
@@ -282,5 +348,29 @@ rmse_depth_rf = df_test.groupby("depth_bin")["residual_rf"].apply(
 print("\nRMSE by depth bin — Random Forest (test set)")
 print(rmse_depth_rf)
 
+# MAE by depth range 
+
+mae_depth_rf = df_test.groupby("depth_bin")["residual_rf"].apply(
+    lambda r: np.mean(np.abs(r))
+)
+
+print("\nMAE by depth bin — Random Forest (test set)")
+print(mae_depth_rf)
 
 
+
+
+
+
+
+#10) Summarized results table 
+
+depth_metrics = pd.DataFrame({
+    "RMSE_LinReg": rmse_depth_LinReg,
+    "MAE_LinReg": mae_depth_LinReg,
+    "RMSE_RF": rmse_depth_rf,
+    "MAE_RF": mae_depth_rf
+})
+
+print("\nDepth-dependent error metrics (test set)")
+print(depth_metrics)
