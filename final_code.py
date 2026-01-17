@@ -10,7 +10,7 @@ from sklearn.metrics import mean_absolute_error
 
 # 1) Load Neuchâtel dataset
 
-#load the L8_2020_dataset.csv files from the Github link at the end of the report and change the pathway
+#Download the L8_2020_dataset.csv file from the Github link at the end of the report and modify the path.
 df = pd.read_csv(
     "L8_2020_dataset.csv"
 )
